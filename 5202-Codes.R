@@ -3,7 +3,8 @@ library(tidyverse)
 library(readr)
 library(dplyr)
 library(ggpubr)
-
+library(ggplot2)
+library(car)
 
 #2012 DATA
 #Load in rawdata from Github ##remember to use that raw link (this appears to create a one time token, that have to be repeaat everytime######
@@ -287,3 +288,347 @@ combined_data6 <- left_join(combined_data5b, phyto2022_summary,
                             by = c("SITE_ID", "DATE_COL"),
                             relationship = "many-to-many") #note
 names(combined_data6)
+
+
+################################################################################################
+install.packages("randomForest")
+library(randomForest)
+
+
+vars_needed <- c("MICX", "CHLA_RESULT", "total_phytoplankton_biovolume", 
+                 "total_cyanobacteria_biovolume", "PTOX_biovolume")
+
+RF_data <- combined_data6[complete.cases(combined_data6[, vars_needed]), ]
+
+
+# Fit the random forest regression model
+set.seed(123)  # for reproducibility
+rf_model <- randomForest(
+  MICX ~ CHLA_RESULT + total_phytoplankton_biovolume + total_cyanobacteria_biovolume + PTOX_biovolume,
+  data = RF_data ,
+  importance = TRUE,
+  ntree = 500
+)
+
+# Print the model summary
+print(rf_model)
+
+# Get variable importance
+importance(rf_model)
+
+#########
+plot(rf_model$predicted, RF_data$MICX,
+     xlab = "Predicted", ylab = "Observed MICX",
+     main = "Random Forest Predicted vs Observed")
+abline(0, 1, col = "red")
+
+####################################################################################################
+RF_data$MICX_class <- ifelse(RF_data$MICX <= 0.05, "NonDetect", "Detect")
+RF_data$MICX_class <- as.factor(RF_data$MICX_class)
+
+rf_class <- randomForest(
+  MICX_class ~ CHLA_RESULT + total_phytoplankton_biovolume + total_cyanobacteria_biovolume + PTOX_biovolume,
+  data = RF_data,
+  importance = TRUE
+)
+print(rf_class)
+varImpPlot(rf_class)
+importance(rf_class)
+#################################################################################################
+p1A <- combined_data6 %>%
+  ggplot(aes(x = CHLA_RESULT, y = MICX)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 2, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "Chlorophyll-a",
+    y = "Microcystins (MIC; µg/L)",
+    title = "Relationship Between Chlorophyll-a and Microcystins"
+  )
+
+
+p2B <- combined_data6 %>%
+  ggplot(aes(x = total_phytoplankton_density, y = MICX)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  scale_x_log10() +  
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 2, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "Total_phytoplankton_density",
+    y = "Microcystins (MIC; µg/L)",
+    title = "Relationship Between Total_phytoplankton_density and Microcystins"
+  )
+
+
+
+p3C <- combined_data6 %>%
+  ggplot(aes(x = total_cyanobacteria_density, y = MICX)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "green") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 0.5, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "Total_cyanobacteria_density",
+    y = "Microcystins (MIC; µg/L)",
+    title = "Relationship Between Total_cyanobacteria_density and Microcystins"
+  )
+
+
+
+p4D <- combined_data6 %>%
+  ggplot(aes(x = PTOX_biovolume, y = MICX)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "purple") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 1, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "PTOX_biovolume",
+    y = "Microcystins (MIC; µg/L)",
+    title = "Relationship Between PTOX_biovolume and Microcystins"
+  )
+
+# Arrange plots together
+ggarrange(p1A, p2B, p3C, p4D, ncol = 2, nrow = 2)
+#####################################################################################################
+S1A <- combined_data6 %>%
+  ggplot(aes(x = CHLA_RESULT, y = CYLSPER)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 2, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "Chlorophyll-a",
+    y = "Cylindrospermopsins (CYL; µg/L)",
+    title = "Relationship Between Chlorophyll-a and Cylindrospermopsins"
+  )
+
+
+S2B <- combined_data6 %>%
+  ggplot(aes(x = total_phytoplankton_density, y = CYLSPER)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  scale_x_log10() +  
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 2, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "Total_phytoplankton_biovolume",
+    y = "Cylindrospermopsins (CYL; µg/L)",
+    title = "Relationship Between Total_phytoplankton_density and Cylindrospermopsins"
+  )
+
+
+
+S3C <- combined_data6 %>%
+  ggplot(aes(x = total_cyanobacteria_density, y = CYLSPER)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "green") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 0.5, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "Total_cyanobacteria_density",
+    y = "Cylindrospermopsins (CYL; µg/L)",
+    title = "Relationship Between Total_cyanobacteria_density and Cylindrospermopsins"
+  )
+
+
+S4D <- combined_data6 %>%
+  ggplot(aes(x = PTOX_biovolume, y = CYLSPER)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "purple") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 1, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "PTOX_biovolume",
+    y = "Cylindrospermopsins (CYL; µg/L)",
+    title = "Relationship Between PTOX_biovolume and Cylindrospermopsins"
+  )
+
+# Arrange plots together
+ggarrange(S1A, S2B, S3C, S4D, ncol = 2, nrow = 2)
+
+
+##############################################
+#MIC
+combined_data6 %>%
+  ggplot(aes(x = percent_cyanobacteria_biovolume, y = MICX)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  scale_x_continuous() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 1, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "percent_cyanobacteria_biovolume",
+    y = "Microcystins (MIC; µg/L)",
+    title = "Relationship Between percent_cyanobacteria_biovolume and Microcystins"
+  )
+
+#####CYL
+combined_data6 %>%
+  ggplot(aes(x = percent_cyanobacteria_biovolume, y = CYLSPER)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "purple") +
+  scale_x_continuous() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 1, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "percent_cyanobacteria_biovolume",
+    y = "Cylindrospermopsins (CYL; µg/L)",
+    title = "Relationship Between percent_cyanobacteria_biovolume and Cylindrospermopsins"
+  )
+######################################################
+#%ptox plot
+#MIC
+combined_data6 %>%
+  ggplot(aes(x = percent_PTOX_biovolume, y = MICX)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 1, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "percent_PTOX_biovolume",
+    y = "Microcystins (MIC; µg/L)",
+    title = "Relationship Between percent_PTOX_biovolume and Microcystins"
+  )
+
+#####CYL
+combined_data6 %>%
+  ggplot(aes(x = percent_PTOX_biovolume, y = CYLSPER)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "purple") +
+  scale_x_log10() + 
+  scale_y_log10() +
+  stat_cor(method = "spearman", label.x = 1, label.y = 2.5,
+           aes(label = paste("rho == ", ..r.., "*','~p == ", ..p..)),
+           parse = TRUE) +
+  theme_bw() +
+  labs(
+    x = "percent_PTOX_biovolume",
+    y = "Cylindrospermopsins (CYL; µg/L)",
+    title = "Relationship Between percent_PTOX_biovolume and Cylindrospermopsins"
+  )
+########################################
+#Mulitiple linear regression
+#check names
+names(combined_data6)
+
+# Fit the multiple linear regression model
+model <- lm(MICX ~ CHLA_RESULT + total_phytoplankton_density + total_cyanobacteria_density + 
+              PTOX_biovolume + MIC_PTOX_biovolume + percent_cyanobacteria_biovolume +
+              percent_PTOX_biovolume, data = combined_data6)
+
+# Summary of the model
+summary(model)
+
+# Check assumptions
+# Plot diagnostic plots
+par(mfrow = c(2, 2))
+plot(model)
+
+# Check for multicollinearity
+library(car)
+vif(model)
+
+# check correlations
+cor(combined_data6[, c("MICX", "CHLA_RESULT", "total_phytoplankton_density", "total_cyanobacteria_density", 
+             "PTOX_biovolume", "MIC_PTOX_biovolume", "percent_cyanobacteria_biovolume",
+             "percent_PTOX_biovolume")], use = "complete.obs")
+#####################################################################
+Model2 <- lm(MICX ~ CHLA_RESULT + PTOX_biovolume + MIC_PTOX_biovolume +
+     percent_cyanobacteria_biovolume + percent_PTOX_biovolume, data = combined_data6)
+
+summary(Model2)
+#####
+Model3 <- lm(MICX ~ CHLA_RESULT + PTOX_biovolume + total_cyanobacteria_density + MIC_PTOX_biovolume +
+               percent_cyanobacteria_biovolume + percent_PTOX_biovolume, data = combined_data6)
+
+summary(Model3)
+#not much difference
+##############Log transferm
+# Log-transform MICX (adding a small constant to avoid log(0) if needed)
+combined_data6$log_MICX <- log(combined_data6$MICX + 0.01)  # Use 0.01 or other small value if zeros exist
+
+# Fit the linear model without the highly collinear variable
+log_model <- lm(log_MICX ~ CHLA_RESULT + total_cyanobacteria_density +
+                  PTOX_biovolume + MIC_PTOX_biovolume +
+                  percent_cyanobacteria_biovolume + percent_PTOX_biovolume,
+                data = combined_data6)
+
+# Summarize the model
+summary(log_model)
+
+# Optional: Check VIFs again
+library(car)
+vif(log_model)
+#############################################################################
+#cyl
+combined_data6$log_CYLSPER <- log(combined_data6$CYLSPER + 0.01)  # Use 0.01 or other small value if zeros exist
+
+# Fit the linear model without the highly collinear variable
+log_model2 <- lm(log_CYLSPER ~ CHLA_RESULT + total_cyanobacteria_density +
+                  PTOX_biovolume + CYL_PTOX_biovolume +
+                  percent_cyanobacteria_biovolume + percent_PTOX_biovolume,
+                data = combined_data6)
+
+# Summarize the model
+summary(log_model2)
+
+# Optional: Check VIFs again
+library(car)
+vif(log_model2)
+######################################
+#siGNIFICANT ONLY
+log_model3 <- lm(log_CYLSPER ~ PTOX_biovolume + CYL_PTOX_biovolume +
+                   percent_cyanobacteria_biovolume,
+                 data = combined_data6)
+
+# Summarize the model
+summary(log_model3)
+
+log_model4 <- lm(log_MICX ~ CHLA_RESULT + total_cyanobacteria_density +
+                  percent_cyanobacteria_biovolume,
+                data = combined_data6)
+# Summarize the model
+summary(log_model4)
+###########################################
